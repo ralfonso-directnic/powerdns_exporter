@@ -12,10 +12,13 @@ import (
 	"strings"
 	"sync"
 	"time"
-
 	"github.com/prometheus/client_golang/prometheus"
+	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"github.com/prometheus/common/log"
 )
+
+
+var debug bool 
 
 const (
 	namespace        = "powerdns"
@@ -65,20 +68,19 @@ type Exporter struct {
 	ServerType string
 	ApiKey     string
 	mutex      sync.RWMutex
-
 	up                prometheus.Gauge
 	totalScrapes      prometheus.Counter
 	jsonParseFailures prometheus.Counter
 	gaugeMetrics      map[int]prometheus.Gauge
-	counterVecMetrics map[int]*prometheus.CounterVec
+	gaugeVecMetrics map[int]*prometheus.GaugeVec
 	gaugeDefs         []gaugeDefinition
-	counterVecDefs    []counterVecDefinition
+	gaugeVecDefs    []gaugeVecDefinition
 	client            *http.Client
 }
 
-func newCounterVecMetric(serverType, metricName, docString string, labelNames []string) *prometheus.CounterVec {
-	return prometheus.NewCounterVec(
-		prometheus.CounterOpts{
+func newGaugeVecMetric(serverType, metricName, docString string, labelNames []string) *prometheus.GaugeVec {
+	return prometheus.NewGaugeVec(
+		prometheus.GaugeOpts{
 			Namespace: namespace,
 			Subsystem: serverType,
 			Name:      metricName,
@@ -102,29 +104,29 @@ func newGaugeMetric(serverType, metricName, docString string) prometheus.Gauge {
 // NewExporter returns an initialized Exporter.
 func NewExporter(apiKey, serverType string, hostURL *url.URL) *Exporter {
 	var gaugeDefs []gaugeDefinition
-	var counterVecDefs []counterVecDefinition
+	var gaugeVecDefs []gaugeVecDefinition
 
 	gaugeMetrics := make(map[int]prometheus.Gauge)
-	counterVecMetrics := make(map[int]*prometheus.CounterVec)
+	gaugeVecMetrics := make(map[int]*prometheus.GaugeVec)
 
 	switch serverType {
 	case "recursor":
 		gaugeDefs = recursorGaugeDefs
-		counterVecDefs = recursorCounterVecDefs
+		gaugeVecDefs = recursorCounterVecDefs
 	case "authoritative":
 		gaugeDefs = authoritativeGaugeDefs
-		counterVecDefs = authoritativeCounterVecDefs
+		gaugeVecDefs = authoritativeCounterVecDefs
 	case "dnsdist":
 		gaugeDefs = dnsdistGaugeDefs
-		counterVecDefs = dnsdistCounterVecDefs
+		gaugeVecDefs = dnsdistCounterVecDefs
 	}
 
 	for _, def := range gaugeDefs {
 		gaugeMetrics[def.id] = newGaugeMetric(serverType, def.name, def.desc)
 	}
 
-	for _, def := range counterVecDefs {
-		counterVecMetrics[def.id] = newCounterVecMetric(serverType, def.name, def.desc, []string{def.label})
+	for _, def := range gaugeVecDefs {
+		gaugeVecMetrics[def.id] = newGaugeVecMetric(serverType, def.name, def.desc, []string{def.label})
 	}
 
 	return &Exporter{
@@ -150,16 +152,16 @@ func NewExporter(apiKey, serverType string, hostURL *url.URL) *Exporter {
 			Help:      "Number of errors while parsing PowerDNS JSON stats.",
 		}),
 		gaugeMetrics:      gaugeMetrics,
-		counterVecMetrics: counterVecMetrics,
+		gaugeVecMetrics: gaugeVecMetrics,
 		gaugeDefs:         gaugeDefs,
-		counterVecDefs:    counterVecDefs,
+		gaugeVecDefs:    gaugeVecDefs,
 	}
 }
 
 // Describe describes all the metrics ever exported by the PowerDNS exporter. It
 // implements prometheus.Collector.
 func (e *Exporter) Describe(ch chan<- *prometheus.Desc) {
-	for _, m := range e.counterVecMetrics {
+	for _, m := range e.gaugeVecMetrics {
 		m.Describe(ch)
 	}
 	for _, m := range e.gaugeMetrics {
@@ -195,6 +197,7 @@ func (e *Exporter) scrape(jsonStats chan<- []StatsEntry) {
 	var data []StatsEntry
 	url := apiURL(e.HostURL, apiStatsEndpoint)
 	err := getJSON(url, e.ApiKey, &data)
+	
 	if err != nil {
 		e.up.Set(0)
 		e.jsonParseFailures.Inc()
@@ -208,13 +211,13 @@ func (e *Exporter) scrape(jsonStats chan<- []StatsEntry) {
 }
 
 func (e *Exporter) resetMetrics() {
-	for _, m := range e.counterVecMetrics {
+	for _, m := range e.gaugeVecMetrics {
 		m.Reset()
 	}
 }
 
 func (e *Exporter) collectMetrics(ch chan<- prometheus.Metric, statsMap map[string]float64) {
-	for _, m := range e.counterVecMetrics {
+	for _, m := range e.gaugeVecMetrics {
 		m.Collect(ch)
 	}
 	for _, m := range e.gaugeMetrics {
@@ -254,10 +257,10 @@ func (e *Exporter) setMetrics(jsonStats <-chan []StatsEntry) (statsMap map[strin
 		}
 	}
 
-	for _, def := range e.counterVecDefs {
+	for _, def := range e.gaugeVecDefs {
 		for key, label := range def.labelMap {
 			if value, ok := statsMap[key]; ok {
-				e.counterVecMetrics[def.id].WithLabelValues(label).Set(value)
+				e.gaugeVecMetrics[def.id].WithLabelValues(label).Set(value)
 			} else {
 				log.Errorf("Expected PowerDNS stats key not found: %s", key)
 				e.jsonParseFailures.Inc()
@@ -279,18 +282,45 @@ func getServerInfo(hostURL *url.URL, apiKey string) (*ServerInfo, error) {
 }
 
 func getJSON(url, apiKey string, data interface{}) error {
+    
 	req, err := http.NewRequest("GET", url, nil)
+	
 	if err != nil {
-		return err
+    	
+      if(debug == true){
+    	
+    
+    		log.Errorf("%v",err)
+	
+	  }
+    	
+    	
+       return err
 	}
 
 	req.Header.Add("X-API-Key", apiKey)
+	
 	resp, err := client.Do(req)
+	
 	if err != nil {
+    	
+       if(debug == true){
+    	
+    	log.Errorf("%v",err)
+	
+	  }
+    	
+    	
 		return err
 	}
 
 	defer resp.Body.Close()
+	
+    if(debug == true){
+    	
+    	log.Errorf("HTTP Api Resp %d:",resp.StatusCode)
+	
+	}
 
 	if resp.StatusCode != http.StatusOK {
 		content, err := ioutil.ReadAll(resp.Body)
@@ -310,6 +340,13 @@ func getJSON(url, apiKey string, data interface{}) error {
 func apiURL(hostURL *url.URL, path string) string {
 	endpointURI, _ := url.Parse(path)
 	u := hostURL.ResolveReference(endpointURI)
+	
+	if(debug == true){
+    	
+    	log.Errorf("Api Request:",u.String())
+	
+	}
+	
 	return u.String()
 }
 
@@ -320,7 +357,30 @@ func main() {
 		apiURL        = flag.String("api-url", "http://localhost:8001/", "Base-URL of PowerDNS authoritative server/recursor API.")
 		apiKey        = flag.String("api-key", "", "PowerDNS API Key")
 	)
+  
+    flag.BoolVar(&debug,"debug", false, "Debug Output")
+	
 	flag.Parse()
+	
+	var last *string
+	
+	last = new(string)
+	
+	*last = (*apiURL)[len(*apiURL)-1:]
+	
+	if(debug){
+    	
+    	log.Errorf("%v",*last)
+	
+	}
+	
+	if(*last != "/") { 
+    	
+    	log.Errorf("apiURL requires trailing /")
+    	
+	}
+	
+
 
 	hostURL, err := url.Parse(*apiURL)
 	if err != nil {
@@ -336,7 +396,7 @@ func main() {
 	prometheus.MustRegister(exporter)
 
 	log.Infof("Starting Server: %s", *listenAddress)
-	http.Handle(*metricsPath, prometheus.Handler())
+	http.Handle(*metricsPath, promhttp.Handler())
 	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
 		w.Write([]byte(`<html>
              <head><title>PowerDNS Exporter</title></head>

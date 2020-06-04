@@ -15,6 +15,15 @@ type gaugeDefinition struct {
 	key  string
 }
 
+type gaugeVecDefinition struct {
+	id       int
+	name     string
+	desc     string
+	label    string
+	// Maps PowerDNS stats names to Prometheus label value
+	labelMap map[string]string
+}
+
 // Used to programmatically create prometheus.CounterVec metrics
 type counterVecDefinition struct {
 	id       int
@@ -64,22 +73,22 @@ var (
 		gaugeDefinition{3, "cache_size", "Number of entries in the cache.", "cache-entries"},
 	}
 
-	recursorCounterVecDefs = []counterVecDefinition{
-		counterVecDefinition{
+	recursorCounterVecDefs = []gaugeVecDefinition{
+		gaugeVecDefinition{
 			1, "incoming_queries_total", "Total number of incoming queries by network.", "net",
 			map[string]string{"questions": "udp", "tcp-questions": "tcp"},
 		},
-		counterVecDefinition{
+		gaugeVecDefinition{
 			2, "outgoing_queries_total", "Total number of outgoing queries by network.", "net",
 			map[string]string{"all-outqueries": "udp", "tcp-outqueries": "tcp"},
 		},
-		counterVecDefinition{
+		gaugeVecDefinition{
 			3, "cache_lookups_total", "Total number of cache lookups by result.", "result",
 			map[string]string{"cache-hits": "hit", "cache-misses": "miss"},
 		},
-		counterVecDefinition{4, "answers_rcodes_total", "Total number of answers by response code.", "rcode", rCodeLabelMap},
-		counterVecDefinition{5, "answers_rtime_total", "Total number of answers grouped by response time slots.", "timeslot", rTimeLabelMap},
-		counterVecDefinition{6, "exceptions_total", "Total number of exceptions by error.", "error", exceptionsLabelMap},
+		gaugeVecDefinition{4, "answers_rcodes_total", "Total number of answers by response code.", "rcode", rCodeLabelMap},
+		gaugeVecDefinition{5, "answers_rtime_total", "Total number of answers grouped by response time slots.", "timeslot", rTimeLabelMap},
+		gaugeVecDefinition{6, "exceptions_total", "Total number of exceptions by error.", "error", exceptionsLabelMap},
 	}
 )
 
@@ -93,32 +102,32 @@ var (
 		gaugeDefinition{5, "metadata_cache_size", "Number of entries in the metadata cache.", "meta-cache-size"},
 		gaugeDefinition{6, "qsize", "Number of packets waiting for database attention.", "qsize-q"},
 	}
-	authoritativeCounterVecDefs = []counterVecDefinition{
-		counterVecDefinition{
+	authoritativeCounterVecDefs = []gaugeVecDefinition{
+		gaugeVecDefinition{
 			1, "queries_total", "Total number of queries by network.", "net",
 			map[string]string{"tcp-queries": "tcp", "udp-queries": "udp"},
 		},
-		counterVecDefinition{
+		gaugeVecDefinition{
 			2, "answers_total", "Total number of answers by network.", "net",
 			map[string]string{"tcp-answers": "tcp", "udp-answers": "udp"},
 		},
-		counterVecDefinition{
+		gaugeVecDefinition{
 			3, "recursive_queries_total", "Total number of recursive queries by status.", "status",
 			map[string]string{"rd-queries": "requested", "recursing-questions": "processed", "recursing-answers": "answered", "recursion-unanswered": "unanswered"},
 		},
-		counterVecDefinition{
+		gaugeVecDefinition{
 			4, "update_queries_total", "Total number of DNS update queries by status.", "status",
 			map[string]string{"dnsupdate-answers": "answered", "dnsupdate-changes": "applied", "dnsupdate-queries": "requested", "dnsupdate-refused": "refused"},
 		},
-		counterVecDefinition{
+		gaugeVecDefinition{
 			5, "packet_cache_lookups_total", "Total number of packet-cache lookups by result.", "result",
 			map[string]string{"packetcache-hit": "hit", "packetcache-miss": "miss"},
 		},
-		counterVecDefinition{
+		gaugeVecDefinition{
 			6, "query_cache_lookups_total", "Total number of query-cache lookups by result.", "result",
 			map[string]string{"query-cache-hit": "hit", "query-cache-miss": "miss"},
 		},
-		counterVecDefinition{
+		gaugeVecDefinition{
 			7, "exceptions_total", "Total number of exceptions by error.", "error",
 			map[string]string{"servfail-packets": "servfail", "timedout-questions": "timeout", "udp-recvbuf-errors": "recvbuf-error", "udp-sndbuf-errors": "sndbuf-error"},
 		},
@@ -128,7 +137,7 @@ var (
 // PowerDNS Dnsdist metrics definitions
 var (
 	dnsdistGaugeDefs      = []gaugeDefinition{}
-	dnsdistCounterVecDefs = []counterVecDefinition{}
+	dnsdistCounterVecDefs = []gaugeVecDefinition{}
 )
 
 // Creates a fixed-value response time histogram from the following stats counters:
