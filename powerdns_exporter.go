@@ -112,10 +112,10 @@ func NewExporter(apiKey, serverType string, hostURL *url.URL) *Exporter {
 	switch serverType {
 	case "recursor":
 		gaugeDefs = recursorGaugeDefs
-		gaugeVecDefs = recursorCounterVecDefs
+		gaugeVecDefs = recursoGaugeVecDefs
 	case "authoritative":
 		gaugeDefs = authoritativeGaugeDefs
-		gaugeVecDefs = authoritativeCounterVecDefs
+		gaugeVecDefs = authoritativeGaugeVecDefs
 	case "dnsdist":
 		gaugeDefs = dnsdistGaugeDefs
 		gaugeVecDefs = dnsdistCounterVecDefs
@@ -380,9 +380,8 @@ func main() {
     	
 	}
 	
-
-
 	hostURL, err := url.Parse(*apiURL)
+	
 	if err != nil {
 		log.Fatalf("Error parsing api-url: %v", err)
 	}
@@ -390,6 +389,12 @@ func main() {
 	server, err := getServerInfo(hostURL, *apiKey)
 	if err != nil {
 		log.Fatalf("Could not fetch PowerDNS server info: %v", err)
+	}
+	
+    if(debug){
+    	
+    	log.Errorf("%v",server.DaemonType)
+	
 	}
 
 	exporter := NewExporter(*apiKey, server.DaemonType, hostURL)

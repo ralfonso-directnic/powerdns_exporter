@@ -73,7 +73,7 @@ var (
 		gaugeDefinition{3, "cache_size", "Number of entries in the cache.", "cache-entries"},
 	}
 
-	recursorCounterVecDefs = []gaugeVecDefinition{
+	recursoGaugeVecDefs = []gaugeVecDefinition{
 		gaugeVecDefinition{
 			1, "incoming_queries_total", "Total number of incoming queries by network.", "net",
 			map[string]string{"questions": "udp", "tcp-questions": "tcp"},
@@ -95,14 +95,19 @@ var (
 // PowerDNS authoritative server metrics definitions
 var (
 	authoritativeGaugeDefs = []gaugeDefinition{
+    	
 		gaugeDefinition{1, "latency_average_seconds", "Exponential moving average of question-to-answer latency.", "latency"},
 		gaugeDefinition{2, "packet_cache_size", "Number of entries in the packet cache.", "packetcache-size"},
 		gaugeDefinition{3, "signature_cache_size", "Number of entries in the signature cache.", "signature-cache-size"},
 		gaugeDefinition{4, "key_cache_size", "Number of entries in the key cache.", "key-cache-size"},
 		gaugeDefinition{5, "metadata_cache_size", "Number of entries in the metadata cache.", "meta-cache-size"},
 		gaugeDefinition{6, "qsize", "Number of packets waiting for database attention.", "qsize-q"},
+		gaugeDefinition{7, "uptime", "Server Uptime.", "uptime"},
+		gaugeDefinition{8, "overload_drops", "Number of questions dropped because backends overloaded", "overload-drops"},
+		gaugeDefinition{8, "timedout_packets", "Amount of packets that were dropped because they had to wait too long internally", "timedout-packets"},
+		
 	}
-	authoritativeCounterVecDefs = []gaugeVecDefinition{
+	authoritativeGaugeVecDefs = []gaugeVecDefinition{
 		gaugeVecDefinition{
 			1, "queries_total", "Total number of queries by network.", "net",
 			map[string]string{"tcp-queries": "tcp", "udp-queries": "udp"},
